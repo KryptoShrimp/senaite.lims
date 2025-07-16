@@ -12,15 +12,19 @@
       "destination": "/frontend/index.html"
     },
     {
+      "source": "/config.js",
+      "destination": "/frontend/config.js"
+    },
+    {
+      "source": "/app.js",
+      "destination": "/frontend/app.js"
+    },
+    {
       "source": "/static/(.*)",
       "destination": "/static/$1"
     },
     {
       "source": "/frontend/(.*)",
-      "destination": "/frontend/$1"
-    },
-    {
-      "source": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))$",
       "destination": "/frontend/$1"
     },
     {
