@@ -33,3 +33,5 @@ bootstrap.py
 # OS
 .DS_Store
 Thumbs.db
+
+.cursor/mcp.json
