@@ -1,9 +1,14 @@
 {
   "version": 2,
+  "outputDirectory": ".",
   "rewrites": [
     {
-      "source": "/((?!frontend/).*)",
-      "destination": "/frontend/:1"
+      "source": "/static/(.*)",
+      "destination": "/static/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/$1"
     }
   ]
 }
