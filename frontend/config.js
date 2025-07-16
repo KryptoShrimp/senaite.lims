@@ -58,9 +58,9 @@ const CONFIG = getConfig();
 
 // Build redirect URLs based on current configuration
 CONFIG.BASE_URL = `${CONFIG.PROTOCOL}//${CONFIG.DOMAIN}${CONFIG.PORT}`;
-CONFIG.REDIRECT_URL = `${CONFIG.BASE_URL}/frontend/auth-callback.html`;
-CONFIG.SUCCESS_URL = `${CONFIG.BASE_URL}/frontend/auth-success.html`;
-CONFIG.LOGIN_URL = `${CONFIG.BASE_URL}/frontend/index.html`;
+CONFIG.REDIRECT_URL = `${CONFIG.BASE_URL}/auth-callback.html`;
+CONFIG.SUCCESS_URL = `${CONFIG.BASE_URL}/auth-success.html`;
+CONFIG.LOGIN_URL = `${CONFIG.BASE_URL}/index.html`;
 
 // Save configuration to localStorage for persistence
 function saveConfig() {
@@ -74,9 +74,9 @@ function updateConfig(newConfig) {
     // Rebuild URLs if domain/protocol changed
     if (newConfig.DOMAIN || newConfig.PROTOCOL || newConfig.PORT) {
         CONFIG.BASE_URL = `${CONFIG.PROTOCOL}//${CONFIG.DOMAIN}${CONFIG.PORT}`;
-        CONFIG.REDIRECT_URL = `${CONFIG.BASE_URL}/frontend/auth-callback.html`;
-        CONFIG.SUCCESS_URL = `${CONFIG.BASE_URL}/frontend/auth-success.html`;
-        CONFIG.LOGIN_URL = `${CONFIG.BASE_URL}/frontend/index.html`;
+        CONFIG.REDIRECT_URL = `${CONFIG.BASE_URL}/auth-callback.html`;
+        CONFIG.SUCCESS_URL = `${CONFIG.BASE_URL}/auth-success.html`;
+        CONFIG.LOGIN_URL = `${CONFIG.BASE_URL}/index.html`;
     }
     
     saveConfig();

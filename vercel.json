@@ -1,66 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "frontend/**/*",
-      "use": "@vercel/static"
-    }
-  ],
+  "public": "frontend",
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/frontend/index.html"
-    },
-    {
-      "source": "/config.js",
-      "destination": "/frontend/config.js"
-    },
-    {
-      "source": "/app.js",
-      "destination": "/frontend/app.js"
-    },
-    {
-      "source": "/static/(.*)",
-      "destination": "/static/$1"
-    },
-    {
-      "source": "/frontend/(.*)",
-      "destination": "/frontend/$1"
-    },
-    {
       "source": "/(.*)",
-      "destination": "/frontend/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "https://hlegzvytcoqdvoqqqmaa.supabase.co"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        }
-      ]
+      "destination": "/index.html"
     }
   ]
-} 
+}
