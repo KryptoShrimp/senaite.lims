@@ -1,10 +1,9 @@
 {
   "version": 2,
-  "public": "frontend",
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/((?!frontend/).*)",
+      "destination": "/frontend/:1"
     }
   ]
 }
