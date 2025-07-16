@@ -24,7 +24,7 @@ function getConfig() {
         // SENAITE backend URL - adjust based on environment
         SENAITE_URL: urlParams.get('senaite_url') || 
                      storedConfig.SENAITE_URL || 
-                     (isVercel ? 'https://your-senaite-backend.com' : 'http://localhost:8080'),
+                     (isVercel ? 'https://lims.gateshub.company' : 'http://localhost:8080'),
         
         // Domain configuration
         DOMAIN: urlParams.get('domain') || 
