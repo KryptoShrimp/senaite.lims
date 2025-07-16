@@ -41,10 +41,10 @@ function getConfig() {
               storedConfig.PORT || 
               (window.location.port && !isVercel ? `:${window.location.port}` : ''),
         
-        // Azure AD scopes
+        // Azure AD scopes - Supabase requires 'email' scope specifically
         AZURE_SCOPES: urlParams.get('azure_scopes') || 
                       storedConfig.AZURE_SCOPES || 
-                      'email profile openid',
+                      'email',
         
         // Environment detection
         IS_VERCEL: isVercel,

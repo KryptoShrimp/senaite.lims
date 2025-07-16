@@ -61,6 +61,18 @@ async function handleLogin() {
         loading.style.display = 'block'
         error.style.display = 'none'
         
+        console.log('Starting Azure AD login...')
+        console.log('Config check:', {
+            SUPABASE_URL: CONFIG.SUPABASE_URL,
+            SUPABASE_ANON_KEY: CONFIG.SUPABASE_ANON_KEY ? 'Present' : 'Missing',
+            REDIRECT_URL: CONFIG.REDIRECT_URL,
+            AZURE_SCOPES: CONFIG.AZURE_SCOPES
+        })
+        
+        // Test Supabase connection first
+        const { data: { user } } = await supabase.auth.getUser()
+        console.log('Supabase connection test:', user ? 'Connected' : 'Not authenticated')
+        
         console.log('Attempting login with redirect URL:', CONFIG.REDIRECT_URL)
         
         const { data, error: authError } = await supabase.auth.signInWithOAuth({
@@ -71,6 +83,8 @@ async function handleLogin() {
             }
         })
         
+        console.log('OAuth response:', { data, error: authError })
+        
         if (authError) {
             throw authError
         }
@@ -80,6 +94,11 @@ async function handleLogin() {
         
     } catch (err) {
         console.error('Login failed:', err)
+        console.error('Error details:', {
+            message: err.message,
+            stack: err.stack,
+            name: err.name
+        })
         showError(`Login failed: ${err.message}. Please try again.`)
     }
 }
