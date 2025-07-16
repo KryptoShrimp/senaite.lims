@@ -1,8 +1,8 @@
 // Get configuration from centralized config
-const CONFIG = window.SENAITE_CONFIG || {};
+// CONFIG is already declared in config.js, so we'll use window.SENAITE_CONFIG directly
 
 // Initialize Supabase client with centralized config
-const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY)
+const supabase = window.supabase.createClient(window.SENAITE_CONFIG.SUPABASE_URL, window.SENAITE_CONFIG.SUPABASE_ANON_KEY)
 
 // DOM elements
 const loginContainer = document.getElementById('loginContainer')
@@ -12,7 +12,7 @@ const error = document.getElementById('error')
 const appFrame = document.getElementById('appFrame')
 
 // SENAITE backend URL from centralized config
-const SENAITE_URL = CONFIG.SENAITE_URL
+const SENAITE_URL = window.SENAITE_CONFIG.SENAITE_URL
 
 // Authentication state
 let currentUser = null
@@ -63,23 +63,23 @@ async function handleLogin() {
         
         console.log('Starting Azure AD login...')
         console.log('Config check:', {
-            SUPABASE_URL: CONFIG.SUPABASE_URL,
-            SUPABASE_ANON_KEY: CONFIG.SUPABASE_ANON_KEY ? 'Present' : 'Missing',
-            REDIRECT_URL: CONFIG.REDIRECT_URL,
-            AZURE_SCOPES: CONFIG.AZURE_SCOPES
+            SUPABASE_URL: window.SENAITE_CONFIG.SUPABASE_URL,
+            SUPABASE_ANON_KEY: window.SENAITE_CONFIG.SUPABASE_ANON_KEY ? 'Present' : 'Missing',
+            REDIRECT_URL: window.SENAITE_CONFIG.REDIRECT_URL,
+            AZURE_SCOPES: window.SENAITE_CONFIG.AZURE_SCOPES
         })
         
         // Test Supabase connection first
         const { data: { user } } = await supabase.auth.getUser()
         console.log('Supabase connection test:', user ? 'Connected' : 'Not authenticated')
         
-        console.log('Attempting login with redirect URL:', CONFIG.REDIRECT_URL)
+        console.log('Attempting login with redirect URL:', window.SENAITE_CONFIG.REDIRECT_URL)
         
         const { data, error: authError } = await supabase.auth.signInWithOAuth({
             provider: 'azure',
             options: {
-                scopes: CONFIG.AZURE_SCOPES,
-                redirectTo: CONFIG.REDIRECT_URL
+                scopes: window.SENAITE_CONFIG.AZURE_SCOPES,
+                redirectTo: window.SENAITE_CONFIG.REDIRECT_URL
             }
         })
         
@@ -210,10 +210,10 @@ function addLogoutButton() {
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('App initializing with config:', CONFIG)
+    console.log('App initializing with config:', window.SENAITE_CONFIG)
     
     // Verify configuration
-    if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) {
+    if (!window.SENAITE_CONFIG.SUPABASE_URL || !window.SENAITE_CONFIG.SUPABASE_ANON_KEY) {
         showError('Configuration error: Missing Supabase credentials')
         return
     }
