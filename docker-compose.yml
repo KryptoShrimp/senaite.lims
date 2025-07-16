@@ -1,0 +1,15 @@
+services:
+  senaite:
+    image: senaite/senaite:v2.6.0
+    container_name: senaite
+    ports:
+      - "8080:8080"
+    environment:
+      - SITE=senaite
+    volumes:
+      - senaite-data:/data
+    restart: unless-stopped
+
+volumes:
+  senaite-data:
+    driver: local

@@ -15,3 +15,21 @@ build
 /pyvenv.cfg
 /include
 /downloads
+
+# Claude
+.claude/
+
+# Temporary bootstrap
+bootstrap.py
+
+# Environment files
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
