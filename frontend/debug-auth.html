@@ -43,12 +43,20 @@
             color: #0c5460;
         }
         
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
         pre {
             background-color: #f8f9fa;
             padding: 10px;
             border-radius: 4px;
             overflow-x: auto;
             white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
         }
         
         button {
@@ -64,6 +72,23 @@
         button:hover {
             background-color: #106ebe;
         }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .config-section {
+            margin-top: 2rem;
+        }
+        
+        .config-input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -73,6 +98,8 @@
         <div id="status" class="status info">
             Initializing...
         </div>
+        
+        <div id="configInfo"></div>
         
         <div id="userInfo"></div>
         
@@ -84,43 +111,66 @@
         <button onclick="testDatabase()">Test Database Connection</button>
         <button onclick="forceLogin()">Force Login</button>
         <button onclick="clearSession()">Clear Session</button>
+        <button onclick="refreshConfig()">Refresh Config</button>
+        
+        <div class="config-section">
+            <h3>Configuration Override</h3>
+            <p>You can override configuration values here (for debugging):</p>
+            <input type="text" id="supabaseUrl" class="config-input" placeholder="Supabase URL">
+            <input type="text" id="supabaseKey" class="config-input" placeholder="Supabase Anon Key">
+            <input type="text" id="senaiteUrl" class="config-input" placeholder="SENAITE URL">
+            <input type="text" id="domain" class="config-input" placeholder="Domain">
+            <button onclick="updateConfig()">Update Config</button>
+        </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <script>
-        // Supabase configuration
-        const SUPABASE_URL = 'https://hlegzvytcoqdvoqqqmaa.supabase.co'
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsZWd6dnl0Y29xZHZvcXFxbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODU4NDIsImV4cCI6MjA2ODI2MTg0Mn0.DEgfEuTfrnmqEb9rfu0GXEqXSyypKaBiPC-QwJRI5kI'
+        // Get configuration from centralized config
+        let CONFIG = window.SENAITE_CONFIG || {};
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        // Initialize Supabase client with centralized config
+        let supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
         
         function updateStatus(message, type = 'info') {
-            const statusDiv = document.getElementById('status')
-            statusDiv.className = `status ${type}`
-            statusDiv.textContent = message
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+        
+        function updateConfigInfo() {
+            const configDiv = document.getElementById('configInfo');
+            configDiv.innerHTML = `
+                <div class="debug-container">
+                    <h3>Configuration Information</h3>
+                    <pre>${JSON.stringify(CONFIG, null, 2)}</pre>
+                </div>
+            `;
         }
         
         function updateUserInfo(user) {
-            const userDiv = document.getElementById('userInfo')
+            const userDiv = document.getElementById('userInfo');
             if (user) {
                 userDiv.innerHTML = `
                     <div class="debug-container">
                         <h3>User Information</h3>
+                        <div class="status success">User authenticated: ${user.email}</div>
                         <pre>${JSON.stringify(user, null, 2)}</pre>
                     </div>
-                `
+                `;
             } else {
                 userDiv.innerHTML = `
                     <div class="debug-container">
                         <h3>User Information</h3>
                         <div class="status error">No user found</div>
                     </div>
-                `
+                `;
             }
         }
         
         function updateDbInfo(result, error) {
-            const dbDiv = document.getElementById('dbInfo')
+            const dbDiv = document.getElementById('dbInfo');
             if (error) {
                 dbDiv.innerHTML = `
                     <div class="debug-container">
@@ -128,22 +178,29 @@
                         <div class="status error">Database Error: ${error.message}</div>
                         <pre>${JSON.stringify(error, null, 2)}</pre>
                     </div>
-                `
-            } else {
+                `;
+            } else if (result) {
                 dbDiv.innerHTML = `
                     <div class="debug-container">
                         <h3>Database Information</h3>
                         <div class="status success">Database operation successful</div>
                         <pre>${JSON.stringify(result, null, 2)}</pre>
                     </div>
-                `
+                `;
+            } else {
+                dbDiv.innerHTML = `
+                    <div class="debug-container">
+                        <h3>Database Information</h3>
+                        <div class="status info">No database test performed yet</div>
+                    </div>
+                `;
             }
         }
         
         function updateUrlInfo() {
-            const urlDiv = document.getElementById('urlInfo')
-            const urlParams = new URLSearchParams(window.location.search)
-            const hash = window.location.hash
+            const urlDiv = document.getElementById('urlInfo');
+            const urlParams = new URLSearchParams(window.location.search);
+            const hash = window.location.hash;
             
             urlDiv.innerHTML = `
                 <div class="debug-container">
@@ -153,117 +210,159 @@
                     <pre>${JSON.stringify(Object.fromEntries(urlParams), null, 2)}</pre>
                     <p><strong>Hash:</strong> ${hash}</p>
                 </div>
-            `
+            `;
         }
         
         async function testAuth() {
             try {
-                updateStatus('Testing authentication...', 'info')
+                updateStatus('Testing authentication...', 'info');
                 
-                const { data: { user }, error } = await supabase.auth.getUser()
+                const { data: { user }, error } = await supabase.auth.getUser();
                 
                 if (error) {
-                    updateStatus(`Authentication error: ${error.message}`, 'error')
-                    updateUserInfo(null)
-                    return
+                    updateStatus(`Authentication error: ${error.message}`, 'error');
+                    updateUserInfo(null);
+                    return;
                 }
                 
                 if (user) {
-                    updateStatus('User authenticated successfully!', 'success')
-                    updateUserInfo(user)
+                    updateStatus('User authenticated successfully!', 'success');
+                    updateUserInfo(user);
                 } else {
-                    updateStatus('No authenticated user found', 'error')
-                    updateUserInfo(null)
+                    updateStatus('No authenticated user found', 'warning');
+                    updateUserInfo(null);
                 }
                 
             } catch (err) {
-                updateStatus(`Authentication test failed: ${err.message}`, 'error')
-                console.error('Auth test error:', err)
+                updateStatus(`Authentication test failed: ${err.message}`, 'error');
+                console.error('Auth test error:', err);
             }
         }
         
         async function testDatabase() {
             try {
-                updateStatus('Testing database connection...', 'info')
+                updateStatus('Testing database connection...', 'info');
                 
                 // First test basic connection
                 const { data: tables, error: tablesError } = await supabase
                     .from('senaite_users')
                     .select('*')
-                    .limit(1)
+                    .limit(1);
                 
                 if (tablesError) {
-                    updateDbInfo(null, tablesError)
-                    return
+                    updateDbInfo(null, tablesError);
+                    return;
                 }
                 
-                updateDbInfo({ message: 'Database connection successful', tables }, null)
+                updateDbInfo({ 
+                    message: 'Database connection successful', 
+                    tableCount: tables.length,
+                    sampleData: tables 
+                }, null);
                 
             } catch (err) {
-                updateDbInfo(null, { message: err.message, error: err })
+                updateDbInfo(null, { message: err.message, error: err });
             }
         }
         
         async function forceLogin() {
             try {
-                updateStatus('Redirecting to login...', 'info')
+                updateStatus('Redirecting to login...', 'info');
                 
                 const { data, error } = await supabase.auth.signInWithOAuth({
                     provider: 'azure',
                     options: {
-                        redirectTo: `${window.location.origin}/frontend/debug-auth.html`
+                        scopes: CONFIG.AZURE_SCOPES,
+                        redirectTo: CONFIG.REDIRECT_URL
                     }
-                })
+                });
                 
                 if (error) {
-                    updateStatus(`Login error: ${error.message}`, 'error')
+                    updateStatus(`Login error: ${error.message}`, 'error');
                 }
                 
             } catch (err) {
-                updateStatus(`Login failed: ${err.message}`, 'error')
+                updateStatus(`Login failed: ${err.message}`, 'error');
             }
         }
         
         async function clearSession() {
             try {
-                updateStatus('Clearing session...', 'info')
+                updateStatus('Clearing session...', 'info');
                 
-                const { error } = await supabase.auth.signOut()
+                const { error } = await supabase.auth.signOut();
                 
                 if (error) {
-                    updateStatus(`Logout error: ${error.message}`, 'error')
+                    updateStatus(`Logout error: ${error.message}`, 'error');
                 } else {
-                    updateStatus('Session cleared successfully', 'success')
-                    updateUserInfo(null)
-                    updateDbInfo(null, null)
+                    updateStatus('Session cleared successfully', 'success');
+                    updateUserInfo(null);
+                    updateDbInfo(null, null);
                 }
                 
             } catch (err) {
-                updateStatus(`Clear session failed: ${err.message}`, 'error')
+                updateStatus(`Clear session failed: ${err.message}`, 'error');
             }
+        }
+        
+        function refreshConfig() {
+            CONFIG = window.SENAITE_CONFIG || {};
+            supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+            updateConfigInfo();
+            updateStatus('Configuration refreshed', 'success');
+        }
+        
+        function updateConfig() {
+            const newConfig = {
+                SUPABASE_URL: document.getElementById('supabaseUrl').value || CONFIG.SUPABASE_URL,
+                SUPABASE_ANON_KEY: document.getElementById('supabaseKey').value || CONFIG.SUPABASE_ANON_KEY,
+                SENAITE_URL: document.getElementById('senaiteUrl').value || CONFIG.SENAITE_URL,
+                DOMAIN: document.getElementById('domain').value || CONFIG.DOMAIN
+            };
+            
+            // Update global config
+            if (window.updateSenaiteConfig) {
+                window.updateSenaiteConfig(newConfig);
+            } else {
+                Object.assign(CONFIG, newConfig);
+            }
+            
+            // Recreate Supabase client
+            supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+            
+            updateConfigInfo();
+            updateStatus('Configuration updated', 'success');
         }
         
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            updateUrlInfo()
-            testAuth()
-        })
+            updateUrlInfo();
+            updateConfigInfo();
+            updateDbInfo(null, null);
+            testAuth();
+            
+            // Populate config inputs
+            document.getElementById('supabaseUrl').value = CONFIG.SUPABASE_URL || '';
+            document.getElementById('supabaseKey').value = CONFIG.SUPABASE_ANON_KEY || '';
+            document.getElementById('senaiteUrl').value = CONFIG.SENAITE_URL || '';
+            document.getElementById('domain').value = CONFIG.DOMAIN || '';
+        });
         
         // Listen for auth state changes
         supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth state changed:', event, session)
+            console.log('Auth state changed:', event, session);
             
             if (event === 'SIGNED_IN' && session?.user) {
-                updateStatus('User signed in successfully!', 'success')
-                updateUserInfo(session.user)
+                updateStatus('User signed in successfully!', 'success');
+                updateUserInfo(session.user);
                 
                 // Test database creation
-                await testDatabase()
+                await testDatabase();
             } else if (event === 'SIGNED_OUT') {
-                updateStatus('User signed out', 'info')
-                updateUserInfo(null)
+                updateStatus('User signed out', 'info');
+                updateUserInfo(null);
             }
-        })
+        });
     </script>
 </body>
 </html>

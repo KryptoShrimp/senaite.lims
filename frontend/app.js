@@ -1,9 +1,8 @@
-// Supabase configuration from config file
-const SUPABASE_URL = CONFIG.SUPABASE_URL
-const SUPABASE_ANON_KEY = CONFIG.SUPABASE_ANON_KEY
+// Get configuration from centralized config
+const CONFIG = window.SENAITE_CONFIG || {};
 
-// Initialize Supabase client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+// Initialize Supabase client with centralized config
+const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY)
 
 // DOM elements
 const loginContainer = document.getElementById('loginContainer')
@@ -12,7 +11,7 @@ const loading = document.getElementById('loading')
 const error = document.getElementById('error')
 const appFrame = document.getElementById('appFrame')
 
-// SENAITE backend URL from config file
+// SENAITE backend URL from centralized config
 const SENAITE_URL = CONFIG.SENAITE_URL
 
 // Authentication state
@@ -28,6 +27,7 @@ async function checkAuth() {
         }
     } catch (err) {
         console.error('Auth check failed:', err)
+        showError('Authentication check failed. Please refresh the page.')
     }
 }
 
@@ -61,6 +61,8 @@ async function handleLogin() {
         loading.style.display = 'block'
         error.style.display = 'none'
         
+        console.log('Attempting login with redirect URL:', CONFIG.REDIRECT_URL)
+        
         const { data, error: authError } = await supabase.auth.signInWithOAuth({
             provider: 'azure',
             options: {
@@ -73,9 +75,12 @@ async function handleLogin() {
             throw authError
         }
         
+        // Note: The actual redirect happens automatically
+        // The user will be redirected to Azure AD, then back to our callback
+        
     } catch (err) {
         console.error('Login failed:', err)
-        showError('Login failed. Please try again.')
+        showError(`Login failed: ${err.message}. Please try again.`)
     }
 }
 
@@ -89,6 +94,7 @@ async function handleLogout() {
         showLogin()
     } catch (err) {
         console.error('Logout failed:', err)
+        showError('Logout failed. Please try again.')
     }
 }
 
@@ -98,7 +104,7 @@ async function createOrUpdateUser(user) {
         const userData = {
             auth_user_id: user.id,
             email: user.email,
-            full_name: user.user_metadata?.full_name || user.email,
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
             azure_id: user.user_metadata?.sub || user.user_metadata?.provider_id,
             department: user.user_metadata?.department || null,
             role: 'user', // Default role
@@ -106,6 +112,8 @@ async function createOrUpdateUser(user) {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         }
+
+        console.log('Creating/updating user with data:', userData)
 
         // Try to insert, if conflict then update
         const { data, error } = await supabase
@@ -131,6 +139,8 @@ async function createOrUpdateUser(user) {
 
 // Listen for auth state changes
 supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log('Auth state changed:', event, session?.user?.email)
+    
     if (event === 'SIGNED_IN' && session?.user) {
         currentUser = session.user
         
@@ -138,18 +148,29 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         const dbUser = await createOrUpdateUser(session.user)
         if (dbUser) {
             console.log('User synchronized to database:', dbUser)
+        } else {
+            console.warn('Failed to sync user to database')
         }
         
         showApp()
     } else if (event === 'SIGNED_OUT') {
         currentUser = null
         showLogin()
+    } else if (event === 'TOKEN_REFRESHED') {
+        console.log('Token refreshed')
     }
 })
 
 // Add logout button to app frame (injected into SENAITE)
 function addLogoutButton() {
+    // Remove existing logout button if it exists
+    const existingBtn = document.getElementById('senaite-logout-btn')
+    if (existingBtn) {
+        existingBtn.remove()
+    }
+    
     const logoutBtn = document.createElement('button')
+    logoutBtn.id = 'senaite-logout-btn'
     logoutBtn.textContent = 'Logout'
     logoutBtn.style.position = 'fixed'
     logoutBtn.style.top = '10px'
@@ -161,6 +182,8 @@ function addLogoutButton() {
     logoutBtn.style.padding = '8px 16px'
     logoutBtn.style.borderRadius = '4px'
     logoutBtn.style.cursor = 'pointer'
+    logoutBtn.style.fontSize = '14px'
+    logoutBtn.style.fontFamily = 'Arial, sans-serif'
     logoutBtn.onclick = handleLogout
     
     document.body.appendChild(logoutBtn)
@@ -168,9 +191,25 @@ function addLogoutButton() {
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('App initializing with config:', CONFIG)
+    
+    // Verify configuration
+    if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) {
+        showError('Configuration error: Missing Supabase credentials')
+        return
+    }
+    
     loginButton.addEventListener('click', handleLogin)
     checkAuth()
     
     // Add logout button when app loads
     setTimeout(addLogoutButton, 2000)
+})
+
+// Handle configuration updates
+window.addEventListener('storage', (e) => {
+    if (e.key === 'senaite-config') {
+        console.log('Configuration updated, reloading page...')
+        window.location.reload()
+    }
 })

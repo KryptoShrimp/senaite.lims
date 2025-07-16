@@ -52,6 +52,26 @@
         .login-button:hover {
             background-color: #106ebe;
         }
+        
+        .error {
+            color: #dc3545;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .debug-info {
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            font-size: 12px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -61,7 +81,147 @@
         </div>
         <h1>SENAITE LIMS</h1>
         <p>Sign in with your university credentials</p>
-        <a href="https://hlegzvytcoqdvoqqqmaa.supabase.co/auth/v1/authorize?provider=azure&redirect_to=http://localhost:8001/frontend/auth-success.html" class="login-button">Sign in with Azure AD</a>
+        <button class="login-button" id="loginButton">Sign in with Azure AD</button>
+        
+        <div class="error" id="error">
+            <strong>Error:</strong> <span id="errorMessage"></span>
+        </div>
+        
+        <div class="debug-info" id="debugInfo">
+            <strong>Debug Info:</strong><br>
+            <span id="debugMessage"></span>
+        </div>
     </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script>
+        // Get configuration from centralized config
+        const CONFIG = window.SENAITE_CONFIG || {};
+        
+        // Initialize Supabase client with centralized config
+        const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+        
+        // DOM elements
+        const loginButton = document.getElementById('loginButton');
+        const errorElement = document.getElementById('error');
+        const errorMessageElement = document.getElementById('errorMessage');
+        const debugInfoElement = document.getElementById('debugInfo');
+        const debugMessageElement = document.getElementById('debugMessage');
+        
+        // Show error message
+        function showError(message) {
+            errorMessageElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+        
+        // Show debug info
+        function showDebugInfo(message) {
+            debugMessageElement.innerHTML = message;
+            debugInfoElement.style.display = 'block';
+        }
+        
+        // Hide error and debug info
+        function hideMessages() {
+            errorElement.style.display = 'none';
+            debugInfoElement.style.display = 'none';
+        }
+        
+        // Handle login button click
+        async function handleLogin() {
+            try {
+                hideMessages();
+                loginButton.disabled = true;
+                loginButton.textContent = 'Signing in...';
+                
+                // Verify configuration
+                if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) {
+                    throw new Error('Configuration error: Missing Supabase credentials');
+                }
+                
+                console.log('Attempting login with config:', {
+                    supabaseUrl: CONFIG.SUPABASE_URL,
+                    redirectUrl: CONFIG.REDIRECT_URL
+                });
+                
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'azure',
+                    options: {
+                        scopes: CONFIG.AZURE_SCOPES,
+                        redirectTo: CONFIG.REDIRECT_URL
+                    }
+                });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                // The user will be redirected to Azure AD automatically
+                // If we reach here, something went wrong
+                console.log('OAuth response:', data);
+                
+            } catch (err) {
+                console.error('Login failed:', err);
+                showError(`Login failed: ${err.message}`);
+                loginButton.disabled = false;
+                loginButton.textContent = 'Sign in with Azure AD';
+            }
+        }
+        
+        // Check if user is already authenticated
+        async function checkExistingAuth() {
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                
+                if (error) {
+                    console.error('Auth check error:', error);
+                    return;
+                }
+                
+                if (user) {
+                    console.log('User already authenticated:', user.email);
+                    // Redirect to main app
+                    window.location.href = CONFIG.SUCCESS_URL || '/frontend/auth-success.html';
+                    return;
+                }
+                
+                console.log('No existing authentication found');
+                
+            } catch (err) {
+                console.error('Auth check failed:', err);
+            }
+        }
+        
+        // Listen for auth state changes
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('Auth state changed:', event, session?.user?.email);
+            
+            if (event === 'SIGNED_IN' && session?.user) {
+                console.log('User signed in successfully');
+                window.location.href = CONFIG.SUCCESS_URL || '/frontend/auth-success.html';
+            }
+        });
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Simple auth page loaded with config:', CONFIG);
+            
+            // Show debug info in development
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                const debugInfo = `
+                    Supabase URL: ${CONFIG.SUPABASE_URL}<br>
+                    Redirect URL: ${CONFIG.REDIRECT_URL}<br>
+                    Base URL: ${CONFIG.BASE_URL}
+                `;
+                showDebugInfo(debugInfo);
+            }
+            
+            // Check if user is already authenticated
+            checkExistingAuth();
+            
+            // Add login button event listener
+            loginButton.addEventListener('click', handleLogin);
+        });
+    </script>
 </body>
 </html>

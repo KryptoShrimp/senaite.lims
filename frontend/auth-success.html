@@ -44,6 +44,16 @@
             text-align: center;
             padding: 2rem;
         }
+        
+        .error {
+            text-align: center;
+            padding: 2rem;
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            margin: 1rem;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -60,15 +70,44 @@
         <p>Please wait while we set up your session.</p>
     </div>
     
-    <iframe id="appFrame" class="app-frame" src="http://localhost:8080" style="display: none;"></iframe>
+    <div class="error" id="error" style="display: none;">
+        <h2>Error</h2>
+        <p id="errorMessage">An error occurred. Please try again.</p>
+        <button onclick="retry()">Retry</button>
+    </div>
+    
+    <iframe id="appFrame" class="app-frame" src="about:blank" style="display: none;"></iframe>
     
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <script>
-        // Supabase configuration
-        const SUPABASE_URL = 'https://hlegzvytcoqdvoqqqmaa.supabase.co'
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsZWd6dnl0Y29xZHZvcXFxbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODU4NDIsImV4cCI6MjA2ODI2MTg0Mn0.DEgfEuTfrnmqEb9rfu0GXEqXSyypKaBiPC-QwJRI5kI'
+        // Get configuration from centralized config
+        const CONFIG = window.SENAITE_CONFIG || {};
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        // Initialize Supabase client with centralized config
+        const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+        
+        // DOM elements
+        const loadingElement = document.getElementById('loading');
+        const errorElement = document.getElementById('error');
+        const errorMessageElement = document.getElementById('errorMessage');
+        const appFrameElement = document.getElementById('appFrame');
+        const userEmailElement = document.getElementById('userEmail');
+        
+        // Show error message
+        function showError(message) {
+            errorMessageElement.textContent = message;
+            loadingElement.style.display = 'none';
+            errorElement.style.display = 'block';
+            appFrameElement.style.display = 'none';
+        }
+        
+        // Retry function
+        function retry() {
+            errorElement.style.display = 'none';
+            loadingElement.style.display = 'block';
+            initApp();
+        }
         
         // Create or update user in senaite_users table
         async function createOrUpdateUser(user) {
@@ -76,7 +115,7 @@
                 const userData = {
                     auth_user_id: user.id,
                     email: user.email,
-                    full_name: user.user_metadata?.full_name || user.email,
+                    full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
                     azure_id: user.user_metadata?.sub || user.user_metadata?.provider_id,
                     department: user.user_metadata?.department || null,
                     role: 'user',
@@ -84,6 +123,8 @@
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 }
+
+                console.log('Creating/updating user with data:', userData);
 
                 const { data, error } = await supabase
                     .from('senaite_users')
@@ -94,69 +135,100 @@
                     .select()
 
                 if (error) {
-                    console.error('Error creating/updating user:', error)
-                    return null
+                    console.error('Error creating/updating user:', error);
+                    return null;
                 }
 
-                console.log('User created/updated:', data)
-                return data[0]
+                console.log('User created/updated:', data);
+                return data[0];
             } catch (err) {
-                console.error('Error in createOrUpdateUser:', err)
-                return null
+                console.error('Error in createOrUpdateUser:', err);
+                return null;
             }
         }
         
         // Initialize app
         async function initApp() {
             try {
+                console.log('Initializing app with config:', CONFIG);
+                
+                // Verify configuration
+                if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) {
+                    showError('Configuration error: Missing Supabase credentials');
+                    return;
+                }
+                
+                if (!CONFIG.SENAITE_URL) {
+                    showError('Configuration error: Missing SENAITE URL');
+                    return;
+                }
+                
                 // Get current user
-                const { data: { user }, error } = await supabase.auth.getUser()
+                const { data: { user }, error } = await supabase.auth.getUser();
                 
                 if (error) {
-                    console.error('Error getting user:', error)
-                    window.location.href = 'simple-auth.html'
-                    return
+                    console.error('Error getting user:', error);
+                    showError(`Authentication error: ${error.message}`);
+                    return;
                 }
                 
                 if (!user) {
-                    console.log('No user found, redirecting to login')
-                    window.location.href = 'simple-auth.html'
-                    return
+                    console.log('No user found, redirecting to login');
+                    window.location.href = CONFIG.LOGIN_URL || '/frontend/index.html';
+                    return;
                 }
                 
-                // Update UI
-                document.getElementById('userEmail').textContent = user.email
+                // Update UI with user email
+                userEmailElement.textContent = user.email;
                 
                 // Create/update user in database
-                const dbUser = await createOrUpdateUser(user)
+                const dbUser = await createOrUpdateUser(user);
                 if (dbUser) {
-                    console.log('User synchronized to database:', dbUser)
+                    console.log('User synchronized to database:', dbUser);
+                } else {
+                    console.warn('Failed to sync user to database');
                 }
                 
                 // Show SENAITE app
-                document.getElementById('loading').style.display = 'none'
-                document.getElementById('appFrame').style.display = 'block'
+                loadingElement.style.display = 'none';
+                appFrameElement.style.display = 'block';
+                appFrameElement.src = CONFIG.SENAITE_URL;
                 
             } catch (err) {
-                console.error('Error initializing app:', err)
-                window.location.href = 'simple-auth.html'
+                console.error('Error initializing app:', err);
+                showError(`Initialization error: ${err.message}`);
             }
         }
         
         // Logout function
         async function logout() {
             try {
-                const { error } = await supabase.auth.signOut()
-                if (error) console.error('Logout error:', error)
-                window.location.href = 'simple-auth.html'
+                const { error } = await supabase.auth.signOut();
+                if (error) {
+                    console.error('Logout error:', error);
+                    showError(`Logout error: ${error.message}`);
+                } else {
+                    window.location.href = CONFIG.LOGIN_URL || '/frontend/index.html';
+                }
             } catch (err) {
-                console.error('Logout error:', err)
-                window.location.href = 'simple-auth.html'
+                console.error('Logout error:', err);
+                showError(`Logout error: ${err.message}`);
             }
         }
         
+        // Listen for auth state changes
+        supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('Auth state changed:', event, session?.user?.email);
+            
+            if (event === 'SIGNED_OUT') {
+                window.location.href = CONFIG.LOGIN_URL || '/frontend/index.html';
+            } else if (event === 'TOKEN_REFRESHED') {
+                console.log('Token refreshed');
+            }
+        });
+        
         // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', initApp)
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
