@@ -120,15 +120,21 @@ async function handleLogout() {
 // Create or update user in senaite_users table
 async function createOrUpdateUser(user) {
     try {
+        // Extract username from email
+        const username = user.email.split('@')[0];
+        
         const userData = {
             auth_user_id: user.id,
+            username: username,
             email: user.email,
             full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
-            azure_id: user.user_metadata?.sub || user.user_metadata?.provider_id,
+            first_name: user.user_metadata?.given_name || user.user_metadata?.first_name || '',
+            last_name: user.user_metadata?.family_name || user.user_metadata?.last_name || '',
+            azure_object_id: user.user_metadata?.sub || user.user_metadata?.oid || user.user_metadata?.provider_id,
+            azure_tenant_id: user.user_metadata?.tid || user.user_metadata?.tenant_id,
             department: user.user_metadata?.department || null,
-            role: 'user', // Default role
+            job_title: user.user_metadata?.job_title || null,
             is_active: true,
-            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         }
 
