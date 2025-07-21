@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Callback Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .section { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .code { background: #e0e0e0; padding: 10px; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Auth Callback Debug</h1>
+    
+    <div class="section">
+        <h2>URL Parameters</h2>
+        <div id="url-params" class="code"></div>
+    </div>
+
+    <div class="section">
+        <h2>Hash Parameters</h2>
+        <div id="hash-params" class="code"></div>
+    </div>
+
+    <div class="section">
+        <h2>Full URL</h2>
+        <div id="full-url" class="code"></div>
+    </div>
+
+    <div class="section">
+        <h2>Processing Log</h2>
+        <div id="log"></div>
+    </div>
+
+    <div class="section">
+        <h2>Actions</h2>
+        <button onclick="copyDebugInfo()">Copy Debug Info</button>
+        <button onclick="window.location.href='/frontend/index.html'">Back to Login</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://hlegzvytcoqdvoqqqmaa.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsZWd6dnl0Y29xZHZvcXFxbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODU4NDIsImV4cCI6MjA2ODI2MTg0Mn0.DEgfEuTfrnmqEb9rfu0GXEqXSyypKaBiPC-QwJRI5kI';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        let debugInfo = '';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            logDiv.innerHTML += `<div style="color: ${color}">${new Date().toISOString()} - ${message}</div>`;
+            debugInfo += `${new Date().toISOString()} - ${message}\n`;
+        }
+        
+        function analyzeCallback() {
+            // Display full URL
+            document.getElementById('full-url').textContent = window.location.href;
+            debugInfo += `Full URL: ${window.location.href}\n\n`;
+            
+            // Parse URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlParamsObj = {};
+            urlParams.forEach((value, key) => {
+                urlParamsObj[key] = value;
+            });
+            document.getElementById('url-params').textContent = JSON.stringify(urlParamsObj, null, 2);
+            debugInfo += `URL Params: ${JSON.stringify(urlParamsObj, null, 2)}\n\n`;
+            
+            // Parse hash parameters
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const hashParamsObj = {};
+            hashParams.forEach((value, key) => {
+                hashParamsObj[key] = value;
+            });
+            document.getElementById('hash-params').textContent = JSON.stringify(hashParamsObj, null, 2);
+            debugInfo += `Hash Params: ${JSON.stringify(hashParamsObj, null, 2)}\n\n`;
+            
+            // Check for specific parameters
+            const code = urlParams.get('code') || hashParams.get('code');
+            const error = urlParams.get('error') || hashParams.get('error');
+            const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
+            const state = urlParams.get('state') || hashParams.get('state');
+            
+            if (code) {
+                log(`Authorization code found: ${code.substring(0, 30)}...`, 'success');
+                log('Azure authentication successful, code received');
+                
+                // Try to manually process the session
+                log('Attempting to get session from Supabase...');
+                processSession();
+            }
+            
+            if (error) {
+                log(`Error: ${error}`, 'error');
+                if (errorDescription) {
+                    log(`Error Description: ${errorDescription}`, 'error');
+                }
+            }
+            
+            if (state) {
+                log(`State parameter: ${state}`);
+            }
+            
+            // Check if we're in an error state
+            if (!code && !error) {
+                log('No code or error parameters found in URL', 'error');
+            }
+        }
+        
+        async function processSession() {
+            try {
+                // First, check current session
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                if (sessionError) {
+                    log(`Session error: ${sessionError.message}`, 'error');
+                } else if (session) {
+                    log('Session found!', 'success');
+                    log(`User: ${session.user.email}`);
+                    log(`Provider: ${session.user.app_metadata.provider}`);
+                } else {
+                    log('No session found after callback', 'error');
+                    
+                    // Try to exchange code manually (this usually won't work from frontend)
+                    log('Checking if Supabase can process the callback...');
+                    
+                    // Listen for auth state changes
+                    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                        log(`Auth state change: ${event}`);
+                        if (session) {
+                            log(`Session established: ${session.user.email}`, 'success');
+                        }
+                    });
+                    
+                    // Give it a moment to process
+                    setTimeout(() => {
+                        log('Timeout reached, checking session one more time...');
+                        checkFinalSession();
+                    }, 3000);
+                }
+            } catch (err) {
+                log(`Exception: ${err.message}`, 'error');
+            }
+        }
+        
+        async function checkFinalSession() {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (session) {
+                log('Session established after delay!', 'success');
+                log('Redirecting to app in 2 seconds...');
+                setTimeout(() => {
+                    window.location.href = '/frontend/auth-success.html';
+                }, 2000);
+            } else {
+                log('No session could be established', 'error');
+                log('This indicates the Azure code exchange failed at Supabase level');
+            }
+        }
+        
+        function copyDebugInfo() {
+            navigator.clipboard.writeText(debugInfo).then(() => {
+                alert('Debug info copied to clipboard!');
+            });
+        }
+        
+        // Run analysis on load
+        window.addEventListener('load', () => {
+            log('Auth callback debug page loaded');
+            analyzeCallback();
+        });
+    </script>
+</body>
+</html>

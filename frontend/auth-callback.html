@@ -107,6 +107,14 @@
             console.log('Current URL:', window.location.href);
             console.log('Config:', window.SENAITE_CONFIG);
             
+            // TEMPORARY: Redirect to debug page if we have parameters
+            const hasParams = window.location.search || window.location.hash;
+            if (hasParams && window.location.pathname.includes('auth-callback.html')) {
+                console.log('Redirecting to debug page...');
+                window.location.href = '/frontend/auth-callback-debug.html' + window.location.search + window.location.hash;
+                return;
+            }
+            
             // Check if we have any error parameters in the URL
             const urlParams = new URLSearchParams(window.location.search);
             const hashParams = new URLSearchParams(window.location.hash.slice(1));
