@@ -1,51 +1,59 @@
 // Configuration for SENAITE LIMS Frontend Wrapper
 // This configuration system works in browsers without build tools
+//
+// Auth model: this site no longer runs its own login. Access is granted by the
+// Gates Hub SSO session (shared cookie on .gateshub.company) plus the
+// has_module_access() entitlement managed in the gateshub.company admin portal.
 
 // Get configuration from URL parameters, localStorage, or defaults
 function getConfig() {
     const urlParams = new URLSearchParams(window.location.search);
-    const stored = localStorage.getItem('senaite-config');
+    // v2 storage key: v1 stored the retired per-app Supabase auth credentials,
+    // which must not override the hub settings below for returning visitors.
+    const stored = localStorage.getItem('senaite-config-v2');
     const storedConfig = stored ? JSON.parse(stored) : {};
-    
+
     // Detect if we're on Vercel
     const isVercel = window.location.hostname.includes('vercel.app');
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
+
     return {
-        // Supabase configuration
-        SUPABASE_URL: urlParams.get('supabase_url') || 
-                      storedConfig.SUPABASE_URL || 
-                      'https://hlegzvytcoqdvoqqqmaa.supabase.co',
-        
-        SUPABASE_ANON_KEY: urlParams.get('supabase_key') || 
-                           storedConfig.SUPABASE_ANON_KEY || 
-                           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhsZWd6dnl0Y29xZHZvcXFxbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODU4NDIsImV4cCI6MjA2ODI2MTg0Mn0.DEgfEuTfrnmqEb9rfu0GXEqXSyypKaBiPC-QwJRI5kI',
-        
+        // Gates Hub Supabase project (gates-onboarding) — the SSO identity and
+        // module-entitlement source of truth. The anon key is public by design.
+        HUB_SUPABASE_URL: urlParams.get('hub_supabase_url') ||
+                          storedConfig.HUB_SUPABASE_URL ||
+                          'https://mlibfbsewnnssmivtpty.supabase.co',
+
+        HUB_SUPABASE_ANON_KEY: urlParams.get('hub_supabase_key') ||
+                               storedConfig.HUB_SUPABASE_ANON_KEY ||
+                               'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1saWJmYnNld25uc3NtaXZ0cHR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNjk4MDIsImV4cCI6MjA2Nzc0NTgwMn0.b_-Gv4Xmzt9pIpJgSbHLrBANhGs2_sv551GjXYVjGME',
+
+        // Module key in the hub's modules catalog / module_access table.
+        MODULE_KEY: storedConfig.MODULE_KEY || 'lims',
+
+        // Where to send users who have no hub session (or no LIMS access).
+        HUB_PORTAL_URL: storedConfig.HUB_PORTAL_URL || 'https://gateshub.company/portal',
+
         // SENAITE backend URL - adjust based on environment
-        SENAITE_URL: urlParams.get('senaite_url') || 
-                     storedConfig.SENAITE_URL || 
+        SENAITE_URL: urlParams.get('senaite_url') ||
+                     storedConfig.SENAITE_URL ||
                      (isVercel ? 'https://lims.gateshub.company' : 'http://localhost:8080'),
-        
+
         // Domain configuration
-        DOMAIN: urlParams.get('domain') || 
-                storedConfig.DOMAIN || 
+        DOMAIN: urlParams.get('domain') ||
+                storedConfig.DOMAIN ||
                 window.location.hostname,
-        
+
         // Protocol (http/https)
-        PROTOCOL: urlParams.get('protocol') || 
-                  storedConfig.PROTOCOL || 
+        PROTOCOL: urlParams.get('protocol') ||
+                  storedConfig.PROTOCOL ||
                   window.location.protocol,
-        
+
         // Port for development
-        PORT: urlParams.get('port') || 
-              storedConfig.PORT || 
+        PORT: urlParams.get('port') ||
+              storedConfig.PORT ||
               (window.location.port && !isVercel ? `:${window.location.port}` : ''),
-        
-        // Azure AD scopes - Supabase requires 'email' scope specifically
-        AZURE_SCOPES: urlParams.get('azure_scopes') || 
-                      storedConfig.AZURE_SCOPES || 
-                      'email',
-        
+
         // Environment detection
         IS_VERCEL: isVercel,
         IS_LOCALHOST: isLocalhost,
@@ -56,29 +64,23 @@ function getConfig() {
 // Get the current configuration
 const CONFIG = getConfig();
 
-// Build redirect URLs based on current configuration
+// Build base URL based on current configuration
 CONFIG.BASE_URL = `${CONFIG.PROTOCOL}//${CONFIG.DOMAIN}${CONFIG.PORT}`;
-CONFIG.REDIRECT_URL = `${CONFIG.BASE_URL}/auth-callback.html`;
-CONFIG.SUCCESS_URL = `${CONFIG.BASE_URL}/auth-success.html`;
-CONFIG.LOGIN_URL = `${CONFIG.BASE_URL}/index.html`;
 
 // Save configuration to localStorage for persistence
 function saveConfig() {
-    localStorage.setItem('senaite-config', JSON.stringify(CONFIG));
+    localStorage.setItem('senaite-config-v2', JSON.stringify(CONFIG));
 }
 
 // Function to update configuration dynamically
 function updateConfig(newConfig) {
     Object.assign(CONFIG, newConfig);
-    
+
     // Rebuild URLs if domain/protocol changed
     if (newConfig.DOMAIN || newConfig.PROTOCOL || newConfig.PORT) {
         CONFIG.BASE_URL = `${CONFIG.PROTOCOL}//${CONFIG.DOMAIN}${CONFIG.PORT}`;
-        CONFIG.REDIRECT_URL = `${CONFIG.BASE_URL}/auth-callback.html`;
-        CONFIG.SUCCESS_URL = `${CONFIG.BASE_URL}/auth-success.html`;
-        CONFIG.LOGIN_URL = `${CONFIG.BASE_URL}/index.html`;
     }
-    
+
     saveConfig();
 }
 

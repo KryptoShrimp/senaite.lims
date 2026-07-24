@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SENAITE LIMS - Login</title>
+    <title>SENAITE LIMS</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,8 +15,8 @@
             align-items: center;
             height: 100vh;
         }
-        
-        .login-container {
+
+        .panel {
             background: white;
             padding: 2rem;
             border-radius: 8px;
@@ -25,43 +25,39 @@
             max-width: 400px;
             width: 100%;
         }
-        
+
         .logo {
             margin-bottom: 2rem;
         }
-        
+
         .logo img {
             max-width: 200px;
             height: auto;
         }
-        
-        .login-button {
+
+        .denied {
+            display: none;
+        }
+
+        .denied p {
+            color: #555;
+        }
+
+        .portal-link {
+            display: inline-block;
+            margin-top: 1rem;
             background-color: #0078d4;
             color: white;
-            border: none;
-            padding: 12px 24px;
+            text-decoration: none;
+            padding: 10px 20px;
             border-radius: 4px;
-            font-size: 16px;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 1rem;
+            font-size: 15px;
         }
-        
-        .login-button:hover {
+
+        .portal-link:hover {
             background-color: #106ebe;
         }
-        
-        .loading {
-            display: none;
-            margin-top: 1rem;
-        }
-        
-        .error {
-            color: red;
-            margin-top: 1rem;
-            display: none;
-        }
-        
+
         .app-frame {
             display: none;
             position: fixed;
@@ -74,21 +70,26 @@
     </style>
 </head>
 <body>
-    <div class="login-container" id="loginContainer">
+    <div class="panel" id="checking">
         <div class="logo">
             <img src="/static/senaite-logo.png" alt="SENAITE LIMS" />
         </div>
         <h1>SENAITE LIMS</h1>
-        <p>Sign in with your university credentials</p>
-        <button class="login-button" id="loginButton">Sign in with Azure AD</button>
-        <div class="loading" id="loading">Authenticating...</div>
-        <div class="error" id="error"></div>
+        <p>Checking your Gates Hub access&hellip;</p>
     </div>
-    
+
+    <div class="panel denied" id="denied">
+        <div class="logo">
+            <img src="/static/senaite-logo.png" alt="SENAITE LIMS" />
+        </div>
+        <h1>SENAITE LIMS</h1>
+        <p id="deniedMessage"></p>
+        <a class="portal-link" href="https://gateshub.company/portal">Back to Gates Hub</a>
+    </div>
+
     <iframe id="appFrame" class="app-frame" src="about:blank"></iframe>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script src="/config.js"></script>
-    <script src="/app.js"></script>
+    <script type="module" src="/app.js"></script>
 </body>
 </html>
