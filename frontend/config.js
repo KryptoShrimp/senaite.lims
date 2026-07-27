@@ -35,10 +35,11 @@ function getConfig() {
         // Where to send users who have no hub session (or no LIMS access).
         HUB_PORTAL_URL: storedConfig.HUB_PORTAL_URL || 'https://gateshub.company/portal',
 
-        // SENAITE backend — hosted on the Gates VPS behind nginx + TLS.
+        // SENAITE backend — hosted on Railway (project gates-lims), exposed at
+        // senaite.gateshub.company. The Plone site lives at the /senaite path.
         SENAITE_URL: urlParams.get('senaite_url') ||
                      storedConfig.SENAITE_URL ||
-                     'https://senaite.gateshub.company',
+                     'https://senaite.gateshub.company/senaite',
 
         // Domain configuration
         DOMAIN: urlParams.get('domain') ||
