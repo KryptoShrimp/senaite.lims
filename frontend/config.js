@@ -8,9 +8,10 @@
 // Get configuration from URL parameters, localStorage, or defaults
 function getConfig() {
     const urlParams = new URLSearchParams(window.location.search);
-    // v2 storage key: v1 stored the retired per-app Supabase auth credentials,
-    // which must not override the hub settings below for returning visitors.
-    const stored = localStorage.getItem('senaite-config-v2');
+    // v3 storage key: v1 stored the retired per-app Supabase auth credentials,
+    // v2 stored localhost SENAITE_URLs from the laptop-hosted era — neither may
+    // override the hosted-backend settings below for returning visitors.
+    const stored = localStorage.getItem('senaite-config-v3');
     const storedConfig = stored ? JSON.parse(stored) : {};
 
     // Detect if we're on Vercel
@@ -34,10 +35,11 @@ function getConfig() {
         // Where to send users who have no hub session (or no LIMS access).
         HUB_PORTAL_URL: storedConfig.HUB_PORTAL_URL || 'https://gateshub.company/portal',
 
-        // SENAITE backend URL - adjust based on environment
+        // SENAITE backend — hosted on Railway (project gates-lims), exposed at
+        // senaite.gateshub.company. The Plone site lives at the /senaite path.
         SENAITE_URL: urlParams.get('senaite_url') ||
                      storedConfig.SENAITE_URL ||
-                     (isVercel ? 'https://lims.gateshub.company' : 'http://localhost:8080'),
+                     'https://senaite.gateshub.company/senaite',
 
         // Domain configuration
         DOMAIN: urlParams.get('domain') ||
@@ -69,7 +71,7 @@ CONFIG.BASE_URL = `${CONFIG.PROTOCOL}//${CONFIG.DOMAIN}${CONFIG.PORT}`;
 
 // Save configuration to localStorage for persistence
 function saveConfig() {
-    localStorage.setItem('senaite-config-v2', JSON.stringify(CONFIG));
+    localStorage.setItem('senaite-config-v3', JSON.stringify(CONFIG));
 }
 
 // Function to update configuration dynamically
